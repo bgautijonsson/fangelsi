@@ -178,7 +178,9 @@ p2 <- d |>
       lty = citizen, 
       label = citizen,
       hjust = citizen
-    )
+    ),
+    text_smoothing = 30,
+    color = litur_island
   ) +
   scale_x_date(
     breaks = breaks_width("2 year", offset = "1 year"),
@@ -191,7 +193,7 @@ p2 <- d |>
     guide = guide_axis_truncated()
   ) +
   scale_hjust_manual(
-    values = c(0.6, 0.5)
+    values = c(0.58, 0.45)
   ) +
   theme(
     legend.position = "none"
