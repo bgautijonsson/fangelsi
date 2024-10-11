@@ -21,28 +21,31 @@ litur_svithjod <- "#fd8d3c"
 litur_annad <- "#737373"
 
 pop <- get_eurostat(
-  "migr_pop5ctz"
+  "migr_pop1ctz",
+  filters = list(
+    age = "Y15-64",
+    citizen = c("NAT", "FOR_STLS"),
+    sex = "T"
+  )
 )
 
 pop <- pop |> 
   label_eurostat()
 
-
 pop <- pop |> 
-  filter(
-    c_birth == "Total",
-    sex == "Total",
-    citizen %in% c(
-      "Reporting country",
-      "Foreign country"
-    )
-  ) |> 
-  select(-sex, -freq, -unit, -c_birth) |> 
+  janitor::remove_constant() |> 
   inner_join(
     metill::country_names(),
     by = join_by(geo == country)
   ) |> 
-  rename(pop = values, time = TIME_PERIOD)
+  rename(pop = values) |> 
+  mutate(
+    citizen = if_else(
+      str_detect(citizen, "Foreign country"),
+      "Foreign country",
+      citizen
+    )
+  )
 
 
 
@@ -50,11 +53,11 @@ prisoners <- get_eurostat(
   "crim_pris_ctz"
 )
 
-d <- prisoners |>
+prisoners <- prisoners |>
   label_eurostat()
 
 
-plot_dat <- d |>
+plot_dat <- prisoners |>
   filter(
     unit != "Number"
   ) |> 
@@ -74,7 +77,24 @@ plot_dat <- d |>
   )
 
 
-p1 <- plot_dat |> 
+p1 <- prisoners |>
+  filter(
+    unit != "Number"
+  ) |> 
+  select(
+    -freq,
+    -unit
+  ) |> 
+  rename(time = TIME_PERIOD) |> 
+  inner_join(
+    metill::country_names(),
+    by = join_by(geo == country)
+  ) |> 
+  pivot_wider(names_from = citizen, values_from = values) |> 
+  janitor::clean_names() |> 
+  mutate(
+    p = foreign_country / total
+  ) |> 
   mutate(
     colour = case_when(
       land == "Ísland" ~ litur_island,
@@ -105,11 +125,11 @@ p1 <- plot_dat |>
       ungroup() |> 
       mutate(
         p = case_when(
-          land == "Svíþjóð" ~ p * 0.97,
-          land == "Ísland" ~ p * 0.94,
-          land == "Noregur" ~ p * 0.99,
-          land == "Danmörk" ~ p * 1.09,
-          land == "Finnland" ~ p * 0.95,
+          land == "Svíþjóð" ~ p * 1,
+          land == "Ísland" ~ p * 1,
+          land == "Noregur" ~ p * 1,
+          land == "Danmörk" ~ p * 1,
+          land == "Finnland" ~ p * 1,
           TRUE ~ p
         )
       ),
@@ -117,6 +137,17 @@ p1 <- plot_dat |>
     hjust = 0,
     nudge_x = 10,
     size = 3
+  ) +
+  geom_text(
+    data = ~ group_by(.x, land) |> 
+      filter(land %in% c("Lúxemborg", "Sviss", "Grikkland"), time == max(time)) |> 
+      ungroup(),
+    aes(label = land, colour = colour),
+    hjust = 0,
+    nudge_x = 10,
+    size = 3,
+    alpha = 0.3,
+    col = litur_annad
   ) +
   scale_x_date(
     breaks = breaks_width("2 year"),
@@ -141,12 +172,12 @@ p1 <- plot_dat |>
     subtitle = "Hlutfall fanga með erlent ríkisfang"
   )
 
+p1
 
 
 
 
-
-p2 <- d |>
+p2 <- prisoners |>
   filter(
     unit != "Number"
   ) |> 
@@ -203,6 +234,8 @@ p2 <- d |>
     y = NULL,
     subtitle = "Fjöldi fanga í íslenskum fangelsum á 100.000 íbúa "
   )
+
+p2
 
 title <- "Meðal íbúa með erlent ríkisfang hefur föngum fækkað hlutfallslega"
 
